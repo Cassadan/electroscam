@@ -68,11 +68,13 @@
     .feedback p { margin:0; line-height:1.6; }
     .foot { text-align:center; font-size:12px; color:#86939e; margin:23px 0 0; }
     .result-top { display:flex; align-items:center; gap:28px; margin-bottom:27px; }
-    .score { width:122px; height:122px; min-width:122px; border-radius:50%; display:grid; place-items:center; background:conic-gradient(#128a68 var(--pct),#e4edf0 0); }
+    .score { width:122px; height:122px; min-width:122px; border-radius:50%; display:grid; place-items:center; background:conic-gradient(var(--score-color,#128a68) var(--pct),#e4edf0 0); }
     .score-inner { display:flex; flex-direction:column; align-items:center; justify-content:center; width:101px; height:101px; border-radius:50%; background:white; }
     .score-inner strong { font-size:31px; line-height:1.1; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
     .score-inner span { font-size:12px; color:var(--muted); margin-top:4px; }
     .result-title { margin-bottom:7px; }
+    .result-title.pass { color:#117347; }
+    .result-title.fail { color:#b73342; }
     .result-desc { color:var(--muted); margin-bottom:0; }
     .review-title { padding-top:24px; border-top:1px solid var(--stroke); margin-bottom:17px; }
     .review { display:grid; gap:12px; }
@@ -123,7 +125,7 @@
       <div class="inside">
         <span class="intro-top">Самопроверка</span>
         <h1>Проверь себя по электробезопасности</h1>
-        <p class="lead">10 случайных вопросов из исходных экзаменационных билетов. Выбирай ответ и сразу узнавай, где ошибся. По завершении — результат и разбор ошибок.</p>
+        <p class="lead">10 случайных вопросов из исходных экзаменационных билетов. Выбирай ответ и сразу узнавай, где ошибся. Для сдачи нужно минимум 7 правильных из 10. По завершении — результат и разбор ошибок.</p>
         <div class="stats" aria-label="Содержание тренажёра">
           <div class="stat"><strong>32</strong><span>билета</span></div>
           <div class="stat"><strong>320</strong><span>вопросов</span></div>
@@ -251,8 +253,11 @@
     const mistakes=answers.filter(a=>!a.ok);
     $('score-value').textContent=`${right}/10`;
     $('score-ring').style.setProperty('--pct', `${right*10}%`);
-    $('result-title').textContent=right===10?'Без ошибок!':right>=7?'Хороший результат':right>=4?'Есть что повторить':'Продолжай тренироваться';
-    $('result-desc').textContent=`Правильных ответов: ${right} из 10. Ошибок: ${10-right}.`;
+    const passed = right >= 7;
+    $('result-title').textContent = passed ? '✓ ТЕСТ СДАН' : '✕ ТЕСТ НЕ СДАН';
+    $('result-title').className = 'result-title ' + (passed ? 'pass' : 'fail');
+    $('score-ring').style.setProperty('--score-color', passed ? '#128a68' : '#b73342');
+    $('result-desc').textContent = `Правильных ответов: ${right} из 10. Ошибок: ${10-right}. Для сдачи нужно минимум 7 правильных ответов.`;
     $('review-heading').textContent=mistakes.length?`Ошибки (${mistakes.length})`:'Разбор ошибок';
     const root=$('review'); while (root.firstChild) root.removeChild(root.firstChild);
     if(!mistakes.length) root.appendChild(el('p','empty-review','Все 10 ответов правильные. Отличная работа!'));
