@@ -44,6 +44,13 @@
     .btn:disabled { background:#b8c5cc; color:white; cursor:not-allowed; box-shadow:none; }
     .btn-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:26px; }
     .small-note { margin:17px 0 0; color:var(--muted); font-size:13px; }
+    .mode-toggle { display:flex; align-items:flex-start; gap:13px; padding:16px 17px; margin:7px 0 22px; border:1px solid #d4e3e9; background:#f4fafc; border-radius:13px; cursor:pointer; }
+    .mode-toggle input { width:22px; height:22px; min-width:22px; margin:2px 0 0; accent-color:var(--accent); cursor:pointer; }
+    .mode-toggle strong { display:block; font-size:15px; line-height:1.45; }
+    .mode-toggle small { display:block; font-size:13px; color:var(--muted); line-height:1.5; margin-top:5px; }
+    .mode-toggle:focus-within { outline:2px solid #8ccad7; outline-offset:2px; }
+    .mode-toggle.in-results { margin:24px 0 0; }
+    .mode-caption { margin-top:27px; margin-bottom:0; font-size:13px; font-weight:800; color:var(--muted); }
     .headrow { display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap; margin-bottom:14px; }
     .eyebrow { font-size:13px; font-weight:800; color:var(--accent); letter-spacing:.015em; }
     .source-badge { color:#526575; font-size:12px; font-weight:650; border-radius:999px; padding:6px 11px; background:#eef2f4; }
@@ -125,12 +132,16 @@
       <div class="inside">
         <span class="intro-top">Самопроверка</span>
         <h1>Проверь себя по электробезопасности</h1>
-        <p class="lead">10 случайных вопросов из исходных экзаменационных билетов. Выбирай ответ и сразу узнавай, где ошибся. Для сдачи нужно минимум 7 правильных из 10. По завершении — результат и разбор ошибок.</p>
+        <p class="lead">10 случайных вопросов из исходных экзаменационных билетов. Для сдачи нужно минимум 7 правильных из 10. Выбери удобный режим проверки: сразу после ответа или только после завершения десятки.</p>
         <div class="stats" aria-label="Содержание тренажёра">
           <div class="stat"><strong>32</strong><span>билета</span></div>
           <div class="stat"><strong>320</strong><span>вопросов</span></div>
           <div class="stat"><strong>10</strong><span>за попытку</span></div>
         </div>
+        <label class="mode-toggle" for="delay-feedback-start">
+          <input id="delay-feedback-start" type="checkbox" role="switch">
+          <span><strong>Показывать правильный ответ только в конце</strong><small>Во время теста не будет подсветки и подсказок. После 10 вопросов увидишь все выбранные и правильные ответы.</small></span>
+        </label>
         <button class="btn primary" id="start-btn" type="button">Начать тест →</button>
         <div class="js-status" id="js-status" role="status">⚠️ Скрипт не запущен. Если кнопка не реагирует, файл, вероятно, открыт в предпросмотре (например, «Файлы» на iPhone или внутри чата). Такой просмотр может блокировать JavaScript. Открой HTML как веб-страницу в браузере с поддержкой JavaScript.</div>
         <p class="small-note">Все варианты взяты из исходных файлов. Работает без интернета. Ответы и результаты не сохраняются.</p>
@@ -157,6 +168,11 @@
         </div>
         <div class="review-title"><h3 id="review-heading">Разбор ошибок</h3></div>
         <div class="review" id="review"></div>
+        <p class="mode-caption">Режим следующей десятки</p>
+        <label class="mode-toggle in-results" for="delay-feedback-next">
+          <input id="delay-feedback-next" type="checkbox" role="switch">
+          <span><strong>Показывать правильный ответ только в конце</strong><small>Не показывать правильные ответы до завершения следующих 10 вопросов.</small></span>
+        </label>
         <div class="btn-row"><button class="btn primary" id="retry-btn" type="button">Ещё 10 вопросов →</button></div>
         <p class="small-note">Новая десятка берётся без повторов, пока не закончатся все 320 вопросов. После этого набор перемешивается заново.</p>
       </div>
@@ -172,6 +188,12 @@
   const $ = id => document.getElementById(id);
   const views = [ $('start-view'), $('quiz-view'), $('result-view') ];
   let remaining = [], batch = [], answers = [], index = 0, locked = false;
+  let delayFeedback = false, batchDelayFeedback = false;
+  function setDelayFeedback(value) {
+    delayFeedback = !!value;
+    $('delay-feedback-start').checked = delayFeedback;
+    $('delay-feedback-next').checked = delayFeedback;
+  }
 
   function randomInt(n) {
     if (n <= 1) return 0;
@@ -202,6 +224,7 @@
   function startNextBatch() {
     if (remaining.length < 10) remaining = shuffle(Array.from({length:bank.length},(_,i)=>i));
     batch = remaining.splice(0,10).map(i=>bank[i]);
+    batchDelayFeedback = delayFeedback;
     answers = []; index = 0; locked = false;
     setView('quiz-view');
     showQuestion();
@@ -233,6 +256,13 @@
     locked=true;
     const q=batch[index], correct=q[4], ok=(choice===correct);
     answers.push({q,choice,ok});
+    if (batchDelayFeedback) {
+      // В режиме экзамена не показываем ни правильность, ни правильный вариант.
+      // Следующий вопрос открывается сразу, без промежуточного экрана.
+      if (index===9) showResults();
+      else { index++; showQuestion(); try { window.scrollTo(0, 0); } catch(ignore) {} }
+      return;
+    }
     const buttons=Array.from($('options').children);
     buttons.forEach((button,j)=>{
       button.disabled=true;
@@ -258,15 +288,15 @@
     $('result-title').className = 'result-title ' + (passed ? 'pass' : 'fail');
     $('score-ring').style.setProperty('--score-color', passed ? '#128a68' : '#b73342');
     $('result-desc').textContent = `Правильных ответов: ${right} из 10. Ошибок: ${10-right}. Для сдачи нужно минимум 7 правильных ответов.`;
-    $('review-heading').textContent=mistakes.length?`Ошибки (${mistakes.length})`:'Разбор ошибок';
+    $('review-heading').textContent = batchDelayFeedback ? 'Разбор всех ответов (10)' : (mistakes.length ? `Ошибки (${mistakes.length})` : 'Разбор ошибок');
     const root=$('review'); while (root.firstChild) root.removeChild(root.firstChild);
-    if(!mistakes.length) root.appendChild(el('p','empty-review','Все 10 ответов правильные. Отличная работа!'));
-    for (const a of mistakes) {
+    if(!batchDelayFeedback && !mistakes.length) root.appendChild(el('p','empty-review','Все 10 ответов правильные. Отличная работа!'));
+    for (const a of (batchDelayFeedback ? answers : mistakes)) {
       const [ticket,number,q,opts,correct]=a.q;
       const card=el('article','review-card');
-      card.appendChild(el('div','review-id',`Билет ${ticket} · Вопрос ${number}`));
+      card.appendChild(el('div','review-id',`Билет ${ticket} · Вопрос ${number} · ${a.ok ? '✓ Верно' : '✕ Ошибка'}`));
       card.appendChild(el('p','review-question',q));
-      const wrong=el('div','review-answer wrong-text');
+      const wrong=el('div','review-answer '+(a.ok ? 'correct-text' : 'wrong-text'));
       wrong.appendChild(el('strong','','Твой ответ: '));
       wrong.appendChild(document.createTextNode(opts[a.choice]));
       const good=el('div','review-answer correct-text');
@@ -282,6 +312,8 @@
     ready.textContent = '✓ Тренажёр готов. Нажми «Начать тест». Если кнопка всё равно не работает, открой файл в полноценном браузере, а не во встроенном просмотрщике.';
     ready.classList.add('ready');
   }
+  $('delay-feedback-start').addEventListener('change', e => setDelayFeedback(e.target.checked));
+  $('delay-feedback-next').addEventListener('change', e => setDelayFeedback(e.target.checked));
   $('start-btn').addEventListener('click',startNextBatch);
   $('retry-btn').addEventListener('click',startNextBatch);
   $('next-btn').addEventListener('click',()=>{
