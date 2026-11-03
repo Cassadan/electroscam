@@ -45,6 +45,9 @@
     .btn.outline { color:#6a7783; background:white; border:1px solid var(--stroke); font-size:14px; }
     .btn.outline:hover:not(:disabled) { background:#f3f6f8; }
     .mistakes-state { font-weight:700; margin-top:20px; font-size:14px; color:#536673; }
+    .unique-remaining { margin:0 0 23px; border:1px solid #c8dfe6; background:#eef7fa; color:#165f74; padding:12px 15px; border-radius:12px; font-size:14px; font-weight:740; font-variant-numeric:tabular-nums; }
+    .unique-remaining.compact { margin-bottom:16px; padding:9px 12px; font-size:13px; }
+    .unique-remaining.finished { background:#f3f6f8; color:#546c79; border-color:#dce4ea; }
     .btn:disabled { background:#b8c5cc; color:white; cursor:not-allowed; box-shadow:none; }
     .btn-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:26px; }
     .small-note { margin:17px 0 0; color:var(--muted); font-size:13px; }
@@ -141,6 +144,7 @@
           <div class="stat"><strong>320</strong><span>вопросов</span></div>
           <div class="stat"><strong>10</strong><span>за попытку</span></div>
         </div>
+        <p class="unique-remaining" id="remaining-start" aria-live="polite">Осталось уникальных вопросов: 320 из 320</p>
         <label class="mode-toggle" for="delay-feedback-start">
           <input id="delay-feedback-start" type="checkbox" role="switch">
           <span><strong>Показывать правильный ответ только в конце</strong><small>Во время теста не будет подсветки и подсказок. После 10 вопросов увидишь все выбранные и правильные ответы.</small></span>
@@ -154,6 +158,7 @@
     <section class="panel" id="quiz-view" aria-label="Тестирование" hidden>
       <div class="inside">
         <div class="headrow"><span class="eyebrow" id="question-counter"></span><span class="source-badge" id="source-badge"></span></div>
+        <p class="unique-remaining compact" id="remaining-quiz" aria-live="polite">Осталось уникальных вопросов: 320 из 320</p>
         <div class="progress" role="progressbar" aria-label="Ход теста" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0" id="progress-outer"><div id="progress-inner"></div></div>
         <h2 id="question-title" tabindex="-1"></h2>
         <div class="question-options" id="options"></div>
@@ -169,6 +174,7 @@
           <div class="score" id="score-ring" aria-label="Результат"><div class="score-inner"><strong id="score-value"></strong><span>верных</span></div></div>
           <div><h1 class="result-title" id="result-title"></h1><p class="result-desc" id="result-desc"></p></div>
         </div>
+        <p class="unique-remaining" id="remaining-result" aria-live="polite">Осталось уникальных вопросов: 320 из 320</p>
         <div class="review-title"><h3 id="review-heading">Разбор ошибок</h3></div>
         <div class="review" id="review"></div>
         <p class="mode-caption">Режим следующей десятки</p>
@@ -182,7 +188,7 @@
           <button class="btn secondary" id="mistakes-btn" type="button" disabled>Работа над ошибками (0)</button>
           <button class="btn outline" id="clear-mistakes-btn" type="button" disabled>Очистить список ошибок</button>
         </div>
-        <p class="small-note">Новые вопросы не повторяются, пока не закончатся все 320. Работа над ошибками не расходует основной пул. Если ошибок меньше 10, в повторении будет столько вопросов, сколько накопилось. Список ошибок хранится только в открытой вкладке и сбрасывается при обновлении страницы.</p>
+        <p class="small-note">Счётчик показывает, сколько вопросов ещё не выдавалось в текущем цикле. На последней десятке он достигнет 0, а следующая начнёт новый цикл. Работа над ошибками не расходует основной пул. Если ошибок меньше 10, в повторении будет столько вопросов, сколько накопилось. Список ошибок хранится только в открытой вкладке и сбрасывается при обновлении страницы.</p>
       </div>
     </section>
   </main>
@@ -196,6 +202,22 @@
   const $ = id => document.getElementById(id);
   const views = [ $('start-view'), $('quiz-view'), $('result-view') ];
   let remaining = [], batch = [], answers = [], index = 0, locked = false;
+  // Until the first run there are 320 available questions, not zero.
+  let mainCycleStarted = false;
+  function updateUniqueRemaining() {
+    const count = mainCycleStarted ? remaining.length : bank.length;
+    const label = 'Осталось уникальных вопросов: ' + count + ' из ' + bank.length;
+    for (const id of ['remaining-start', 'remaining-quiz', 'remaining-result']) {
+      const node = $(id);
+      node.textContent = label;
+      node.classList.toggle('finished', mainCycleStarted && count === 0);
+      if (mainCycleStarted && count === 0) {
+        node.title = 'Все вопросы текущего цикла выданы. Следующая десятка начнёт новый круг.';
+      } else {
+        node.removeAttribute('title');
+      }
+    }
+  }
   let delayFeedback = false, batchDelayFeedback = false;
   let batchMode = 'main'; // 'main' or 'mistakes'
   // Набор индексов вопросов, на которые хотя бы раз отвечали неправильно.
@@ -250,8 +272,12 @@
   function startNextBatch(mode) {
     batchMode = mode === 'mistakes' ? 'mistakes' : 'main';
     if (batchMode === 'main') {
-      if (remaining.length < 10) remaining = shuffle(Array.from({length:bank.length},(_,i)=>i));
+      if (remaining.length < 10) {
+        remaining = shuffle(Array.from({length:bank.length},(_,i)=>i));
+        mainCycleStarted = true;
+      }
       batch = remaining.splice(0,10).map(i=>bank[i]);
+      updateUniqueRemaining();
     } else {
       if (!wrongIds.size) return;
       // Каждый ошибочный вопрос встречается один раз за цикл повторения.
@@ -372,6 +398,7 @@
     updateMistakeControls();
   });
   updateMistakeControls();
+  updateUniqueRemaining();
   $('next-btn').addEventListener('click',()=>{
     if(!locked) return;
     if(index===batch.length-1) showResults();
