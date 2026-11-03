@@ -23,7 +23,6 @@
     .wrap { max-width:850px; margin:0 auto; padding:25px 20px 60px; }
     .top { display:flex; align-items:center; justify-content:space-between; gap:15px; padding:4px 3px 24px; }
     .brand { display:flex; align-items:center; gap:11px; font-weight:800; letter-spacing:-.025em; font-size:19px; }
-    .brandmark { display:grid; place-items:center; width:40px; height:40px; border-radius:13px; background:var(--accent); color:white; font-size:24px; font-weight:700; box-shadow:0 4px 10px #145d7529; }
     .top-pill { font-size:12px; font-weight:700; color:var(--accent); border:1px solid #cbdfe8; background:#ecf5f8; padding:7px 11px; border-radius:30px; white-space:nowrap; }
     .panel { border:1px solid var(--stroke); background:var(--paper); border-radius:23px; box-shadow:var(--shadow); overflow:hidden; }
     .inside { padding:38px 42px; }
@@ -41,6 +40,11 @@
     .btn:not(:disabled):active { transform:translateY(1px); }
     .btn.primary { color:#fff; background:var(--accent); box-shadow:0 4px 13px #145d7524; }
     .btn.primary:hover:not(:disabled) { background:var(--accent-strong); }
+    .btn.secondary { color:var(--accent); background:var(--accent-soft); border:1px solid #b6d1db; }
+    .btn.secondary:hover:not(:disabled) { background:#d9edf4; }
+    .btn.outline { color:#6a7783; background:white; border:1px solid var(--stroke); font-size:14px; }
+    .btn.outline:hover:not(:disabled) { background:#f3f6f8; }
+    .mistakes-state { font-weight:700; margin-top:20px; font-size:14px; color:#536673; }
     .btn:disabled { background:#b8c5cc; color:white; cursor:not-allowed; box-shadow:none; }
     .btn-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:26px; }
     .small-note { margin:17px 0 0; color:var(--muted); font-size:13px; }
@@ -101,7 +105,6 @@
       .wrap { padding:17px 12px 36px; }
       .top { padding:2px 3px 17px; }
       .brand { font-size:17px; }
-      .brandmark { width:35px; height:35px; border-radius:11px; font-size:20px; }
       .inside { padding:26px 18px; }
       .lead { font-size:15px; }
       .stats { gap:7px; }
@@ -124,7 +127,7 @@
 <body>
 <div class="wrap">
   <header class="top" role="banner">
-    <div class="brand"><span class="brandmark" aria-hidden="true">ϟ</span><span>ЭБ 1258.22</span></div>
+    <div class="brand">ЭБ 1258.22</div>
     <span class="top-pill">Тренажёр</span>
   </header>
   <main>
@@ -142,7 +145,7 @@
           <input id="delay-feedback-start" type="checkbox" role="switch">
           <span><strong>Показывать правильный ответ только в конце</strong><small>Во время теста не будет подсветки и подсказок. После 10 вопросов увидишь все выбранные и правильные ответы.</small></span>
         </label>
-        <button class="btn primary" id="start-btn" type="button">Начать тест →</button>
+        <div class="btn-row"><button class="btn primary" id="start-btn" type="button">Начать тест →</button><button class="btn secondary" id="start-mistakes-btn" type="button" disabled>Работа над ошибками (0)</button></div>
         <div class="js-status" id="js-status" role="status">⚠️ Скрипт не запущен. Если кнопка не реагирует, файл, вероятно, открыт в предпросмотре (например, «Файлы» на iPhone или внутри чата). Такой просмотр может блокировать JavaScript. Открой HTML как веб-страницу в браузере с поддержкой JavaScript.</div>
         <p class="small-note">Все варианты взяты из исходных файлов. Работает без интернета. Ответы и результаты не сохраняются.</p>
       </div>
@@ -161,7 +164,7 @@
 
     <section class="panel" id="result-view" aria-label="Результат теста" hidden>
       <div class="inside">
-        <span class="intro-top">Тест завершён</span>
+        <span class="intro-top" id="result-kicker">Тест завершён</span>
         <div class="result-top">
           <div class="score" id="score-ring" aria-label="Результат"><div class="score-inner"><strong id="score-value"></strong><span>верных</span></div></div>
           <div><h1 class="result-title" id="result-title"></h1><p class="result-desc" id="result-desc"></p></div>
@@ -173,8 +176,13 @@
           <input id="delay-feedback-next" type="checkbox" role="switch">
           <span><strong>Показывать правильный ответ только в конце</strong><small>Не показывать правильные ответы до завершения следующих 10 вопросов.</small></span>
         </label>
-        <div class="btn-row"><button class="btn primary" id="retry-btn" type="button">Ещё 10 вопросов →</button></div>
-        <p class="small-note">Новая десятка берётся без повторов, пока не закончатся все 320 вопросов. После этого набор перемешивается заново.</p>
+        <p class="mistakes-state" id="mistakes-state">В пуле ошибок: 0 вопросов</p>
+        <div class="btn-row">
+          <button class="btn primary" id="retry-btn" type="button">Ещё 10 новых вопросов →</button>
+          <button class="btn secondary" id="mistakes-btn" type="button" disabled>Работа над ошибками (0)</button>
+          <button class="btn outline" id="clear-mistakes-btn" type="button" disabled>Очистить список ошибок</button>
+        </div>
+        <p class="small-note">Новые вопросы не повторяются, пока не закончатся все 320. Работа над ошибками не расходует основной пул. Если ошибок меньше 10, в повторении будет столько вопросов, сколько накопилось. Список ошибок хранится только в открытой вкладке и сбрасывается при обновлении страницы.</p>
       </div>
     </section>
   </main>
@@ -189,6 +197,24 @@
   const views = [ $('start-view'), $('quiz-view'), $('result-view') ];
   let remaining = [], batch = [], answers = [], index = 0, locked = false;
   let delayFeedback = false, batchDelayFeedback = false;
+  let batchMode = 'main'; // 'main' or 'mistakes'
+  // Набор индексов вопросов, на которые хотя бы раз отвечали неправильно.
+  // Только в памяти текущей вкладки: никаких cookie/localStorage/сервера.
+  const wrongIds = new Set();
+  let wrongRemaining = [];
+  const indexByKey = new Map(bank.map((q, i) => [q[0] + ':' + q[1], i]));
+  function questionIndex(q) { return indexByKey.get(q[0] + ':' + q[1]); }
+  function updateMistakeControls() {
+    const count = wrongIds.size;
+    const suffix = 'Работа над ошибками (' + count + ')';
+    for (const id of ['mistakes-btn', 'start-mistakes-btn']) {
+      const button = $(id);
+      button.textContent = suffix;
+      button.disabled = (count === 0);
+    }
+    $('clear-mistakes-btn').disabled = (count === 0);
+    $('mistakes-state').textContent = 'В пуле ошибок: ' + count + ' ' + (count % 10 === 1 && count % 100 !== 11 ? 'вопрос' : ((count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14)) ? 'вопроса' : 'вопросов'));
+  }
   function setDelayFeedback(value) {
     delayFeedback = !!value;
     $('delay-feedback-start').checked = delayFeedback;
@@ -221,9 +247,19 @@
     for (const v of views) v.hidden = (v.id !== selected);
     try { window.scrollTo(0, 0); } catch (ignore) { /* scrolling is optional */ }
   }
-  function startNextBatch() {
-    if (remaining.length < 10) remaining = shuffle(Array.from({length:bank.length},(_,i)=>i));
-    batch = remaining.splice(0,10).map(i=>bank[i]);
+  function startNextBatch(mode) {
+    batchMode = mode === 'mistakes' ? 'mistakes' : 'main';
+    if (batchMode === 'main') {
+      if (remaining.length < 10) remaining = shuffle(Array.from({length:bank.length},(_,i)=>i));
+      batch = remaining.splice(0,10).map(i=>bank[i]);
+    } else {
+      if (!wrongIds.size) return;
+      // Каждый ошибочный вопрос встречается один раз за цикл повторения.
+      // Остаток цикла не заполняется дублями из уже пройденных вопросов.
+      if (!wrongRemaining.length) wrongRemaining = shuffle(Array.from(wrongIds));
+      const size = Math.min(10, wrongRemaining.length);
+      batch = wrongRemaining.splice(0, size).map(i=>bank[i]);
+    }
     batchDelayFeedback = delayFeedback;
     answers = []; index = 0; locked = false;
     setView('quiz-view');
@@ -232,9 +268,10 @@
   function showQuestion() {
     locked = false;
     const q=batch[index], [ticket,number,question,opts] = q;
-    $('question-counter').textContent = `Вопрос ${index+1} из 10`;
+    $('question-counter').textContent = (batchMode === 'mistakes' ? 'Работа над ошибками · ' : '') + `Вопрос ${index+1} из ${batch.length}`;
     $('source-badge').textContent = `Билет ${ticket} · № ${number}`;
-    $('progress-inner').style.width = `${(index / 10)*100}%`;
+    $('progress-inner').style.width = `${(index / batch.length)*100}%`;
+    $('progress-outer').setAttribute('aria-valuemax', String(batch.length));
     $('progress-outer').setAttribute('aria-valuenow',String(index));
     $('question-title').textContent=question;
     $('feedback').hidden=true;
@@ -256,10 +293,18 @@
     locked=true;
     const q=batch[index], correct=q[4], ok=(choice===correct);
     answers.push({q,choice,ok});
+    if (!ok) {
+      const id = questionIndex(q);
+      if (id !== undefined && !wrongIds.has(id)) {
+        wrongIds.add(id);
+        // Если уже идёт цикл повторения, новый вопрос войдёт в его остаток.
+        if (wrongRemaining.length) wrongRemaining.push(id);
+      }
+    }
     if (batchDelayFeedback) {
       // В режиме экзамена не показываем ни правильность, ни правильный вариант.
       // Следующий вопрос открывается сразу, без промежуточного экрана.
-      if (index===9) showResults();
+      if (index===batch.length-1) showResults();
       else { index++; showQuestion(); try { window.scrollTo(0, 0); } catch(ignore) {} }
       return;
     }
@@ -274,21 +319,24 @@
     box.appendChild(el('strong','',ok?'✓ Верно!':'✕ Неверно'));
     const line=el('p','',ok?'Правильный ответ выбран.':'Правильный ответ: '+q[3][correct]);
     box.appendChild(line);
-    $('progress-inner').style.width = `${((index+1)/10)*100}%`;
+    $('progress-inner').style.width = `${((index+1)/batch.length)*100}%`;
     $('progress-outer').setAttribute('aria-valuenow',String(index+1));
-    const next=$('next-btn'); next.textContent=index===9?'Показать результат →':'Следующий вопрос →'; next.hidden=false;
+    const next=$('next-btn'); next.textContent=index===batch.length-1?'Показать результат →':'Следующий вопрос →'; next.hidden=false;
   }
   function showResults() {
     const right=answers.filter(a=>a.ok).length;
     const mistakes=answers.filter(a=>!a.ok);
-    $('score-value').textContent=`${right}/10`;
-    $('score-ring').style.setProperty('--pct', `${right*10}%`);
-    const passed = right >= 7;
+    const total = batch.length;
+    const required = Math.ceil(total * 0.7);
+    $('score-value').textContent=`${right}/${total}`;
+    $('score-ring').style.setProperty('--pct', `${right/total*100}%`);
+    const passed = right >= required;
+    $('result-kicker').textContent = batchMode === 'mistakes' ? 'Работа над ошибками завершена' : 'Тест завершён';
     $('result-title').textContent = passed ? '✓ ТЕСТ СДАН' : '✕ ТЕСТ НЕ СДАН';
     $('result-title').className = 'result-title ' + (passed ? 'pass' : 'fail');
     $('score-ring').style.setProperty('--score-color', passed ? '#128a68' : '#b73342');
-    $('result-desc').textContent = `Правильных ответов: ${right} из 10. Ошибок: ${10-right}. Для сдачи нужно минимум 7 правильных ответов.`;
-    $('review-heading').textContent = batchDelayFeedback ? 'Разбор всех ответов (10)' : (mistakes.length ? `Ошибки (${mistakes.length})` : 'Разбор ошибок');
+    $('result-desc').textContent = `Правильных ответов: ${right} из ${total}. Ошибок: ${total-right}. Для сдачи нужно минимум ${required} правильных ответов из ${total}.`;
+    $('review-heading').textContent = batchDelayFeedback ? `Разбор всех ответов (${total})` : (mistakes.length ? `Ошибки (${mistakes.length})` : 'Разбор ошибок');
     const root=$('review'); while (root.firstChild) root.removeChild(root.firstChild);
     if(!batchDelayFeedback && !mistakes.length) root.appendChild(el('p','empty-review','Все 10 ответов правильные. Отличная работа!'));
     for (const a of (batchDelayFeedback ? answers : mistakes)) {
@@ -305,6 +353,7 @@
       card.appendChild(wrong); card.appendChild(good);
       root.appendChild(card);
     }
+    updateMistakeControls();
     setView('result-view');
   }
   const ready = $('js-status');
@@ -314,11 +363,18 @@
   }
   $('delay-feedback-start').addEventListener('change', e => setDelayFeedback(e.target.checked));
   $('delay-feedback-next').addEventListener('change', e => setDelayFeedback(e.target.checked));
-  $('start-btn').addEventListener('click',startNextBatch);
-  $('retry-btn').addEventListener('click',startNextBatch);
+  $('start-btn').addEventListener('click', () => startNextBatch('main'));
+  $('retry-btn').addEventListener('click', () => startNextBatch('main'));
+  $('start-mistakes-btn').addEventListener('click', () => startNextBatch('mistakes'));
+  $('mistakes-btn').addEventListener('click', () => startNextBatch('mistakes'));
+  $('clear-mistakes-btn').addEventListener('click', () => {
+    wrongIds.clear(); wrongRemaining = [];
+    updateMistakeControls();
+  });
+  updateMistakeControls();
   $('next-btn').addEventListener('click',()=>{
     if(!locked) return;
-    if(index===9) showResults();
+    if(index===batch.length-1) showResults();
     else { index++; showQuestion(); try { window.scrollTo(0, 0); } catch (ignore) { /* scrolling is optional */ } }
   });
   document.addEventListener('keydown',e=>{
